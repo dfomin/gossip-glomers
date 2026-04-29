@@ -6,6 +6,8 @@ use crate::{body::Body, message::Message};
 pub struct Node {
     id: Option<u32>,
     last_message_id: u64,
+    messages: Vec<u32>,
+
     rx: Receiver<(Message, Sender<Message>)>,
 }
 
@@ -14,6 +16,7 @@ impl Node {
         Self {
             id: None,
             last_message_id: 0,
+            messages: Vec::new(),
             rx,
         }
     }
@@ -43,6 +46,22 @@ impl Node {
                         id: new_id,
                     }
                 }
+                Body::Broadcast { msg_id, message } => {
+                    self.add_message(*message);
+                    Body::BroadcastOk {
+                        msg_id: *msg_id,
+                        in_reply_to: *msg_id,
+                    }
+                }
+                Body::Read { msg_id } => Body::ReadOk {
+                    msg_id: *msg_id,
+                    in_reply_to: *msg_id,
+                    messages: self.messages.clone(),
+                },
+                Body::Topology { msg_id, .. } => Body::TopologyOk {
+                    msg_id: *msg_id,
+                    in_reply_to: *msg_id,
+                },
                 _ => panic!("Unsupported enum type {:?}", message.body),
             };
             let reply = message.reply(reply_body);
@@ -72,5 +91,9 @@ impl Node {
         };
         self.last_message_id += 1;
         Ok(((id as u64) << 32) + self.last_message_id as u64)
+    }
+
+    fn add_message(&mut self, message: u32) {
+        self.messages.push(message);
     }
 }
