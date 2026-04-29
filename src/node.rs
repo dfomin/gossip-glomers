@@ -1,0 +1,76 @@
+use anyhow::{Result, bail};
+use tokio::sync::{mpsc, oneshot};
+
+use crate::{body::Body, message::Message};
+
+pub struct Node {
+    id: Option<u32>,
+    last_message_id: u64,
+    rx: mpsc::Receiver<(Message, oneshot::Sender<Message>)>,
+}
+
+impl Node {
+    pub fn new(rx: mpsc::Receiver<(Message, oneshot::Sender<Message>)>) -> Self {
+        Self {
+            id: None,
+            last_message_id: 0,
+            rx,
+        }
+    }
+
+    pub async fn process(&mut self) -> Result<()> {
+        while let Some((message, tx)) = self.rx.recv().await {
+            let reply_body = match &message.body {
+                Body::Init {
+                    msg_id, node_id, ..
+                } => {
+                    let id = node_id.chars().skip(1).collect::<String>().parse()?;
+                    self.init(id)?;
+                    Body::InitOk {
+                        in_reply_to: *msg_id,
+                    }
+                }
+                Body::Echo { msg_id, echo } => Body::EchoOk {
+                    msg_id: *msg_id,
+                    in_reply_to: *msg_id,
+                    echo: echo.clone(),
+                },
+                Body::Generate { msg_id } => {
+                    let new_id = self.generate()?;
+                    Body::GenerateOk {
+                        msg_id: *msg_id,
+                        in_reply_to: *msg_id,
+                        id: new_id,
+                    }
+                }
+                _ => panic!("Unsupported enum type {:?}", message.body),
+            };
+            let reply = message.reply(reply_body);
+            _ = tx.send(reply);
+        }
+        Ok(())
+    }
+
+    fn init(&mut self, id: u32) -> Result<()> {
+        match self.id {
+            Some(current_id) => bail!(
+                "Cannot initialize with id {}, already initialized with id {}",
+                id,
+                current_id,
+            ),
+
+            None => {
+                self.id = Some(id);
+                Ok(())
+            }
+        }
+    }
+
+    fn generate(&mut self) -> Result<u64> {
+        let Some(id) = self.id else {
+            bail!("Node is not initialized");
+        };
+        self.last_message_id += 1;
+        Ok(((id as u64) << 32) + self.last_message_id as u64)
+    }
+}

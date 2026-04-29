@@ -10,11 +10,11 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn reply(self) -> Self {
+    pub fn reply(&self, reply_body: Body) -> Self {
         Message {
-            src: self.dest,
-            dest: self.src,
-            body: self.body.reply(),
+            src: self.dest.clone(),
+            dest: self.src.clone(),
+            body: reply_body,
         }
     }
 }
