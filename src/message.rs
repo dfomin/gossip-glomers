@@ -8,3 +8,13 @@ pub struct Message {
     pub dest: String,
     pub body: Body,
 }
+
+impl Message {
+    pub fn reply(self) -> Self {
+        Message {
+            src: self.dest,
+            dest: self.src,
+            body: self.body.reply(),
+        }
+    }
+}
