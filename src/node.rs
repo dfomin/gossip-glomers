@@ -1,16 +1,16 @@
 use anyhow::{Result, bail};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::{body::Body, message::Message};
 
 pub struct Node {
     id: Option<u32>,
     last_message_id: u64,
-    rx: mpsc::Receiver<(Message, oneshot::Sender<Message>)>,
+    rx: Receiver<(Message, Sender<Message>)>,
 }
 
 impl Node {
-    pub fn new(rx: mpsc::Receiver<(Message, oneshot::Sender<Message>)>) -> Self {
+    pub fn new(rx: Receiver<(Message, Sender<Message>)>) -> Self {
         Self {
             id: None,
             last_message_id: 0,
@@ -46,7 +46,7 @@ impl Node {
                 _ => panic!("Unsupported enum type {:?}", message.body),
             };
             let reply = message.reply(reply_body);
-            _ = tx.send(reply);
+            tx.send(reply).await?;
         }
         Ok(())
     }
