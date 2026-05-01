@@ -1,6 +1,7 @@
 mod body;
 mod message;
 mod node;
+mod stage;
 
 use anyhow::Result;
 use tokio::{
@@ -8,12 +9,12 @@ use tokio::{
     sync::mpsc,
 };
 
-use crate::{message::Message, node::Node};
+use crate::{message::Message, node::Node, stage::Stage};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let (tx, rx) = mpsc::channel(32);
-    let mut node = Node::new(rx);
+    let mut node = Node::new(rx, Stage::Stage4);
     let node_handle = tokio::spawn(async move {
         node.process().await?;
         Ok::<(), anyhow::Error>(())
