@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ReadRPC {
     Stage3 { messages: Vec<u32> },
     Stage4 { value: u32 },
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Body {
     Init {
@@ -18,6 +18,7 @@ pub enum Body {
         node_ids: Vec<String>,
     },
     InitOk {
+        msg_id: u32,
         in_reply_to: u32,
     },
     Echo {
@@ -47,9 +48,10 @@ pub enum Body {
     },
     Read {
         msg_id: u32,
+        key: Option<String>,
     },
     ReadOk {
-        msg_id: u32,
+        msg_id: Option<u32>,
         in_reply_to: u32,
         #[serde(flatten)]
         result: ReadRPC,
@@ -70,4 +72,22 @@ pub enum Body {
         msg_id: u32,
         in_reply_to: u32,
     },
+    Cas {
+        msg_id: u32,
+        key: String,
+        from: u32,
+        to: u32,
+        create_if_not_exists: bool,
+    },
+    CasOk {
+        msg_id: Option<u32>,
+        in_reply_to: u32,
+    },
+    Error {
+        msg_id: Option<u32>,
+        in_reply_to: u32,
+        code: u32,
+        text: String,
+    },
+    Noop,
 }
