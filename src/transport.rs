@@ -39,7 +39,6 @@ pub struct Transport {
     stdout_tx: mpsc::Sender<Message>,
     stdin_rx: mpsc::Receiver<Message>,
     node_tx: mpsc::Sender<Message>,
-    transport_tx: mpsc::Sender<TransportPayload>,
     transport_rx: mpsc::Receiver<TransportPayload>,
     // pending: HashMap<u64, oneshot::Sender<Body>>,
 }
@@ -49,7 +48,6 @@ impl Transport {
         stdout_tx: mpsc::Sender<Message>,
         stdin_rx: mpsc::Receiver<Message>,
         node_tx: mpsc::Sender<Message>,
-        transport_tx: mpsc::Sender<TransportPayload>,
         transport_rx: mpsc::Receiver<TransportPayload>,
     ) -> Self {
         Self {
@@ -58,7 +56,6 @@ impl Transport {
             stdout_tx,
             stdin_rx,
             node_tx,
-            transport_tx,
             transport_rx,
             //     pending: HashMap::new(),
         }

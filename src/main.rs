@@ -1,8 +1,8 @@
 mod body;
 mod message;
 mod node;
-mod stage;
 mod transport;
+mod workload;
 
 use anyhow::Result;
 use tokio::{
@@ -10,7 +10,7 @@ use tokio::{
     sync::mpsc,
 };
 
-use crate::{message::Message, node::Node, stage::Stage, transport::Transport};
+use crate::{message::Message, node::Node, transport::Transport, workload::WorkloadEcho};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -35,22 +35,16 @@ async fn main() -> Result<()> {
         Ok::<(), anyhow::Error>(())
     });
 
-    let mut transport = Transport::new(
-        stdout_tx,
-        stdin_rx,
-        node_tx,
-        transport_tx.clone(),
-        transport_rx,
-    );
+    let mut transport = Transport::new(stdout_tx, stdin_rx, node_tx, transport_rx);
     let transport_handle = tokio::spawn(async move { transport.run().await });
 
-    let mut node = Node::new(node_rx, transport_tx, Stage::Stage4);
+    let mut node = Node::new(node_rx, transport_tx, WorkloadEcho {});
     let node_handle = tokio::spawn(async move { node.run().await });
 
     stdout_handle.await??;
     stdin_handle.await??;
     node_handle.await??;
-    transport_handle.await?;
+    transport_handle.await??;
 
     Ok(())
 }

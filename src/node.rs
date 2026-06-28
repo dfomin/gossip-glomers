@@ -1,39 +1,22 @@
-use std::collections::HashMap;
-
-use anyhow::{Result, bail};
+use anyhow::Result;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::{
-    body::{Body, Payload},
+    body::Payload,
     message::Message,
-    stage::Stage,
     transport::{SendData, TransportPayload},
+    workload::Workload,
 };
 
-pub struct Node {
-    id: Option<u32>,
-    last_message_id: u32,
-    messages: Vec<u32>,
-    value: u32,
-    message_queue: HashMap<u32, Message>,
-
-    stage: Stage,
+pub struct Node<W: Workload> {
+    workload: W,
     rx: Receiver<Message>,
     tx: Sender<TransportPayload>,
 }
 
-impl Node {
-    pub fn new(rx: Receiver<Message>, tx: Sender<TransportPayload>, stage: Stage) -> Self {
-        Self {
-            id: None,
-            last_message_id: 0,
-            messages: Vec::new(),
-            value: 0,
-            message_queue: HashMap::new(),
-            stage,
-            rx,
-            tx,
-        }
+impl<W: Workload> Node<W> {
+    pub fn new(rx: Receiver<Message>, tx: Sender<TransportPayload>, workload: W) -> Self {
+        Self { workload, rx, tx }
     }
 
     pub async fn run(&mut self) -> Result<()> {
@@ -51,16 +34,11 @@ impl Node {
                         }))
                         .await?;
                 }
-                Payload::Echo { echo } => {
-                    self.tx
-                        .send(TransportPayload::Send(SendData {
-                            payload: Payload::EchoOk { echo },
-                            dest,
-                            in_reply_to: Some(msg_id),
-                        }))
-                        .await?;
+                payload => {
+                    self.workload
+                        .handle(self.tx.clone(), payload, dest, msg_id)
+                        .await?
                 }
-                _ => panic!("Unsupported"),
             };
         }
         Ok(())
@@ -212,29 +190,6 @@ impl Node {
     //         }
     //     }
     //     Ok(())
-    // }
-
-    // fn init(&mut self, id: u32) -> Result<()> {
-    //     match self.id {
-    //         Some(current_id) => bail!(
-    //             "Cannot initialize with id {}, already initialized with id {}",
-    //             id,
-    //             current_id,
-    //         ),
-
-    //         None => {
-    //             self.id = Some(id);
-    //             Ok(())
-    //         }
-    //     }
-    // }
-
-    // fn generate(&mut self) -> Result<u32> {
-    //     let Some(id) = self.id else {
-    //         bail!("Node is not initialized");
-    //     };
-    //     self.last_message_id += 1;
-    //     Ok((id << 16) + self.last_message_id)
     // }
 
     // fn add_message(&mut self, message: u32) {
