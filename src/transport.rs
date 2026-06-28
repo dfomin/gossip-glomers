@@ -23,7 +23,7 @@ pub struct RPCData {
 }
 
 pub enum TransportPayload {
-    Init(String),
+    Init(String, u32),
     Send(SendData),
     RPC(RPCData),
 }
@@ -74,7 +74,7 @@ impl Transport {
                 transport_payload = self.transport_rx.recv() => {
                     if let Some(transport_payload) = transport_payload {
                         match transport_payload {
-                            TransportPayload::Init(node_id) => self.init(node_id),
+                            TransportPayload::Init(node, node_id) => self.node_info = Some(NodeInfo { node, node_id}),
                             TransportPayload::Send(data) => {
                                 self.send(data).await?;
                             }
@@ -114,16 +114,6 @@ impl Transport {
         let message = self.message(body, dest);
         self.stdout_tx.send(message).await?;
         Ok(())
-    }
-
-    pub fn init(&mut self, node: String) {
-        let node_id = node
-            .chars()
-            .skip(1)
-            .collect::<String>()
-            .parse()
-            .expect("Correct node name");
-        self.node_info = Some(NodeInfo { node, node_id });
     }
 
     fn message(&self, body: Body, dest: &str) -> Message {

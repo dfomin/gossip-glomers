@@ -3,6 +3,14 @@ name = "gossip-glomers"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "echo"
+path = "src/bin/echo.rs"
+
+[[bin]]
+name = "generate"
+path = "src/bin/generate.rs"
+
 [dependencies]
 anyhow = "1.0.102"
 serde = { version = "1.0.228", features = ["derive"] }

@@ -25,7 +25,14 @@ impl<W: Workload> Node<W> {
             let msg_id = message.body.msg_id;
             match message.body.payload {
                 Payload::Init { node_id, node_ids } => {
-                    self.tx.send(TransportPayload::Init(node_id)).await?;
+                    let id = node_id
+                        .chars()
+                        .skip(1)
+                        .collect::<String>()
+                        .parse()
+                        .expect("Correct node name");
+                    self.workload.init(id);
+                    self.tx.send(TransportPayload::Init(node_id, id)).await?;
                     self.tx
                         .send(TransportPayload::Send(SendData {
                             payload: Payload::InitOk,
