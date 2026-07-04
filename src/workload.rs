@@ -87,3 +87,50 @@ impl Workload for WorkloadGenerate {
         Ok(())
     }
 }
+
+#[derive(Default)]
+pub struct WorkloadBroadcast {
+    messages: Vec<u32>,
+}
+
+impl Workload for WorkloadBroadcast {
+    async fn handle(
+        &mut self,
+        tx: mpsc::Sender<TransportPayload>,
+        payload: Payload,
+        dest: String,
+        msg_id: u64,
+    ) -> Result<()> {
+        match payload {
+            Payload::Broadcast { message } => {
+                self.messages.push(message);
+                tx.send(TransportPayload::Send(SendData {
+                    payload: Payload::BroadcastOk,
+                    dest,
+                    in_reply_to: Some(msg_id),
+                }))
+                .await?
+            }
+            Payload::Read => {
+                tx.send(TransportPayload::Send(SendData {
+                    payload: Payload::ReadOk {
+                        messages: self.messages.clone(),
+                    },
+                    dest,
+                    in_reply_to: Some(msg_id),
+                }))
+                .await?
+            }
+            Payload::Topology { .. } => {
+                tx.send(TransportPayload::Send(SendData {
+                    payload: Payload::TopologyOk,
+                    dest,
+                    in_reply_to: Some(msg_id),
+                }))
+                .await?
+            }
+            _ => bail!("Unsupported"),
+        }
+        Ok(())
+    }
+}

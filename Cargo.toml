@@ -11,6 +11,10 @@ path = "src/bin/echo.rs"
 name = "generate"
 path = "src/bin/generate.rs"
 
+[[bin]]
+name = "broadcast"
+path = "src/bin/broadcast.rs"
+
 [dependencies]
 anyhow = "1.0.102"
 serde = { version = "1.0.228", features = ["derive"] }
