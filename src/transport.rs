@@ -1,7 +1,11 @@
+use std::{collections::HashMap, time::Duration};
+
 use anyhow::Result;
+use futures::{StreamExt, future::BoxFuture, stream::FuturesUnordered};
 use tokio::{
     select,
     sync::{mpsc, oneshot},
+    time,
 };
 
 use crate::{
@@ -16,10 +20,9 @@ pub struct SendData {
 }
 
 pub struct RPCData {
-    payload: Payload,
-    dest: String,
-    in_reply_to: Option<u64>,
-    reply_channel: oneshot::Sender<Message>,
+    pub payload: Payload,
+    pub dest: String,
+    pub reply_tx: oneshot::Sender<Message>,
 }
 
 pub enum TransportPayload {
@@ -40,7 +43,8 @@ pub struct Transport {
     stdin_rx: mpsc::Receiver<Message>,
     node_tx: mpsc::Sender<Message>,
     transport_rx: mpsc::Receiver<TransportPayload>,
-    // pending: HashMap<u64, oneshot::Sender<Body>>,
+    pending: HashMap<u64, oneshot::Sender<Message>>,
+    futures: FuturesUnordered<BoxFuture<'static, Message>>,
 }
 
 impl Transport {
@@ -57,39 +61,48 @@ impl Transport {
             stdin_rx,
             node_tx,
             transport_rx,
-            //     pending: HashMap::new(),
+            pending: HashMap::new(),
+            futures: FuturesUnordered::new(),
         }
     }
 
     pub async fn run(&mut self) -> Result<()> {
         loop {
             select! {
-                message = self.stdin_rx.recv() => {
-                    if let Some(message) = message {
-                        self.node_tx.send(message).await?;
-                    } else {
-                        break;
-                    }
-                }
-                transport_payload = self.transport_rx.recv() => {
-                    if let Some(transport_payload) = transport_payload {
-                        match transport_payload {
-                            TransportPayload::Init(node, node_id) => self.node_info = Some(NodeInfo { node, node_id}),
-                            TransportPayload::Send(data) => {
-                                self.send(data).await?;
-                            }
-                            TransportPayload::RPC(data) => (),
+                Some(message) = self.stdin_rx.recv() => {
+                    if let Some(in_reply_to) = message.body.in_reply_to {
+                        if let Some(reply_channel) = self.pending.remove(&in_reply_to) {
+                            _ = reply_channel.send(message);
                         }
                     } else {
-                        break;
+                        self.node_tx.send(message).await?;
                     }
                 }
+                Some(transport_payload) = self.transport_rx.recv() => {
+                    match transport_payload {
+                        TransportPayload::Init(node, node_id) => {
+                            self.node_info = Some(NodeInfo { node, node_id});
+                        }
+                        TransportPayload::Send(data) => {
+                            self.send(data).await?;
+                        }
+                        TransportPayload::RPC(data) => {
+                            self.rpc(data).await?;
+                        }
+                    }
+                }
+                Some(message) = self.futures.next() => {
+                    if self.pending.contains_key(&message.body.msg_id) {
+                        self.send_retryable(message).await?;
+                    }
+                }
+                else => break,
             }
         }
         Ok(())
     }
 
-    pub async fn send(&mut self, data: SendData) -> Result<()> {
+    async fn send(&mut self, data: SendData) -> Result<()> {
         let body = Body {
             msg_id: self.generate(),
             in_reply_to: data.in_reply_to,
@@ -100,19 +113,24 @@ impl Transport {
         Ok(())
     }
 
-    pub async fn rpc(
-        &mut self,
-        payload: Payload,
-        dest: &str,
-        in_reply_to: Option<u64>,
-    ) -> Result<()> {
+    async fn rpc(&mut self, data: RPCData) -> Result<()> {
         let body = Body {
             msg_id: self.generate(),
-            in_reply_to: in_reply_to,
-            payload,
+            in_reply_to: None,
+            payload: data.payload,
         };
-        let message = self.message(body, dest);
-        self.stdout_tx.send(message).await?;
+        self.pending.insert(body.msg_id, data.reply_tx);
+        let message = self.message(body, &data.dest);
+        self.send_retryable(message).await?;
+        Ok(())
+    }
+
+    async fn send_retryable(&mut self, message: Message) -> Result<()> {
+        self.stdout_tx.send(message.clone()).await?;
+        self.futures.push(Box::pin(async move {
+            time::sleep(Duration::from_millis(100)).await;
+            message
+        }));
         Ok(())
     }
 

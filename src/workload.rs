@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 use crate::{
     body::Payload,
-    transport::{SendData, TransportPayload},
+    transport::{RPCData, SendData, TransportPayload},
 };
 
 #[allow(async_fn_in_trait)]
@@ -121,12 +121,19 @@ impl Workload for WorkloadBroadcast {
 
                 if is_new {
                     for neighbor in self.topology.get(&self.node).into_iter().flatten() {
-                        tx.send(TransportPayload::Send(SendData {
-                            payload: Payload::Broadcast { message },
-                            dest: neighbor.to_string(),
-                            in_reply_to: None,
-                        }))
-                        .await?;
+                        let tx = tx.clone();
+                        let neighbor = neighbor.to_string();
+                        tokio::spawn(async move {
+                            let (reply_tx, reply_rx) = oneshot::channel();
+                            _ = tx
+                                .send(TransportPayload::RPC(RPCData {
+                                    payload: Payload::Broadcast { message },
+                                    dest: neighbor,
+                                    reply_tx,
+                                }))
+                                .await;
+                            let _reply_message = reply_rx.await;
+                        });
                     }
                 }
             }
