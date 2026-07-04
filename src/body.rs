@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -101,7 +101,7 @@ pub enum Payload {
     BroadcastOk,
     Read,
     ReadOk {
-        messages: Vec<u32>,
+        messages: HashSet<u32>,
     },
     Topology {
         topology: HashMap<String, Vec<String>>,

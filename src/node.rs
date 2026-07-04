@@ -31,7 +31,7 @@ impl<W: Workload> Node<W> {
                         .collect::<String>()
                         .parse()
                         .expect("Correct node name");
-                    self.workload.init(id);
+                    self.workload.init(id, node_id.to_string());
                     self.tx.send(TransportPayload::Init(node_id, id)).await?;
                     self.tx
                         .send(TransportPayload::Send(SendData {

@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use anyhow::{Result, bail};
 use tokio::sync::mpsc;
 
@@ -8,7 +10,7 @@ use crate::{
 
 #[allow(async_fn_in_trait)]
 pub trait Workload {
-    fn init(&mut self, _node_id: u32) {}
+    fn init(&mut self, _node_id: u32, _node: String) {}
 
     async fn handle(
         &mut self,
@@ -59,7 +61,7 @@ impl WorkloadGenerate {
 }
 
 impl Workload for WorkloadGenerate {
-    fn init(&mut self, node_id: u32) {
+    fn init(&mut self, node_id: u32, _node: String) {
         self.node_id = node_id;
     }
 
@@ -90,10 +92,16 @@ impl Workload for WorkloadGenerate {
 
 #[derive(Default)]
 pub struct WorkloadBroadcast {
-    messages: Vec<u32>,
+    node: String,
+    topology: HashMap<String, Vec<String>>,
+    messages: HashSet<u32>,
 }
 
 impl Workload for WorkloadBroadcast {
+    fn init(&mut self, _node_id: u32, node: String) {
+        self.node = node;
+    }
+
     async fn handle(
         &mut self,
         tx: mpsc::Sender<TransportPayload>,
@@ -103,14 +111,26 @@ impl Workload for WorkloadBroadcast {
     ) -> Result<()> {
         match payload {
             Payload::Broadcast { message } => {
-                self.messages.push(message);
+                let is_new = self.messages.insert(message);
                 tx.send(TransportPayload::Send(SendData {
                     payload: Payload::BroadcastOk,
                     dest,
                     in_reply_to: Some(msg_id),
                 }))
-                .await?
+                .await?;
+
+                if is_new {
+                    for neighbor in self.topology.get(&self.node).into_iter().flatten() {
+                        tx.send(TransportPayload::Send(SendData {
+                            payload: Payload::Broadcast { message },
+                            dest: neighbor.to_string(),
+                            in_reply_to: None,
+                        }))
+                        .await?;
+                    }
+                }
             }
+            Payload::BroadcastOk => (),
             Payload::Read => {
                 tx.send(TransportPayload::Send(SendData {
                     payload: Payload::ReadOk {
@@ -121,7 +141,8 @@ impl Workload for WorkloadBroadcast {
                 }))
                 .await?
             }
-            Payload::Topology { .. } => {
+            Payload::Topology { topology } => {
+                self.topology = topology;
                 tx.send(TransportPayload::Send(SendData {
                     payload: Payload::TopologyOk,
                     dest,
