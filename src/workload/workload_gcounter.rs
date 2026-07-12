@@ -133,6 +133,7 @@ impl Workload for WorkloadGcounter {
             Payload::Read { .. } => {
                 let tx = tx.clone();
                 tokio::spawn(async move {
+                    _ = WorkloadGcounter::add(tx.clone(), 0).await;
                     if let Ok(value) = WorkloadGcounter::read(tx.clone()).await {
                         _ = tx
                             .send(TransportPayload::Send(SendData {
