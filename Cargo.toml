@@ -15,6 +15,10 @@ path = "src/bin/generate.rs"
 name = "broadcast"
 path = "src/bin/broadcast.rs"
 
+[[bin]]
+name = "gcounter"
+path = "src/bin/gcounter.rs"
+
 [dependencies]
 anyhow = "1.0.102"
 futures = "0.3.32"

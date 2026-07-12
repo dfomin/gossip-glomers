@@ -2,16 +2,16 @@ use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
-// #[derive(Debug, Clone, Serialize, Deserialize)]
-// #[serde(untagged)]
-// pub enum ReadRPC {
-//     Stage3 { messages: Vec<u32> },
-//     Stage4 { value: u32 },
-// }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ReadRPC {
+    Broadcast { messages: HashSet<u32> },
+    Gcounter { value: u32 },
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Body {
-    pub msg_id: u64,
+    pub msg_id: Option<u64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub in_reply_to: Option<u64>,
@@ -46,12 +46,30 @@ pub enum Payload {
         messages: Vec<u32>,
     },
     BroadcastBatchOk,
-    Read,
+    Read {
+        key: Option<String>,
+    },
     ReadOk {
-        messages: HashSet<u32>,
+        #[serde(flatten)]
+        result: ReadRPC,
     },
     Topology {
         topology: HashMap<String, Vec<String>>,
     },
     TopologyOk,
+    Add {
+        delta: u32,
+    },
+    AddOk,
+    Cas {
+        key: String,
+        from: u32,
+        to: u32,
+        create_if_not_exists: bool,
+    },
+    CasOk,
+    Error {
+        code: u32,
+        text: String,
+    },
 }

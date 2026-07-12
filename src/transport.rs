@@ -92,7 +92,7 @@ impl Transport {
                     }
                 }
                 Some(message) = self.futures.next() => {
-                    if self.pending.contains_key(&message.body.msg_id) {
+                    if let Some(msg_id) = message.body.msg_id && self.pending.contains_key(&msg_id) {
                         self.send_retryable(message).await?;
                     }
                 }
@@ -104,7 +104,7 @@ impl Transport {
 
     async fn send(&mut self, data: SendData) -> Result<()> {
         let body = Body {
-            msg_id: self.generate(),
+            msg_id: Some(self.generate()),
             in_reply_to: data.in_reply_to,
             payload: data.payload,
         };
@@ -114,12 +114,13 @@ impl Transport {
     }
 
     async fn rpc(&mut self, data: RPCData) -> Result<()> {
+        let msg_id = self.generate();
         let body = Body {
-            msg_id: self.generate(),
+            msg_id: Some(msg_id),
             in_reply_to: None,
             payload: data.payload,
         };
-        self.pending.insert(body.msg_id, data.reply_tx);
+        self.pending.insert(msg_id, data.reply_tx);
         let message = self.message(body, &data.dest);
         self.send_retryable(message).await?;
         Ok(())

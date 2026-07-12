@@ -47,7 +47,7 @@ impl<W: Workload> Node<W> {
                                     .send(TransportPayload::Send(SendData {
                                         payload: Payload::InitOk,
                                         dest,
-                                        in_reply_to: Some(msg_id),
+                                        in_reply_to: msg_id,
                                     }))
                                     .await?;
                             }
