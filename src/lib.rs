@@ -13,10 +13,10 @@ use tokio::{
 use crate::{message::Message, node::Node, transport::Transport, workload::Workload};
 
 pub async fn run<W: Workload>(workload: W) -> Result<()> {
-    let (stdout_tx, mut stdout_rx) = mpsc::channel(32);
-    let (stdin_tx, stdin_rx) = mpsc::channel(32);
-    let (node_tx, node_rx) = mpsc::channel(32);
-    let (transport_tx, transport_rx) = mpsc::channel(32);
+    let (stdout_tx, mut stdout_rx) = mpsc::channel(1024);
+    let (stdin_tx, stdin_rx) = mpsc::channel(1024);
+    let (node_tx, node_rx) = mpsc::channel(1024);
+    let (transport_tx, transport_rx) = mpsc::channel(1024);
 
     let stdout_handle = tokio::spawn(async move {
         while let Some(reply) = stdout_rx.recv().await {

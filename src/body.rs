@@ -42,6 +42,10 @@ pub enum Payload {
         message: u32,
     },
     BroadcastOk,
+    BroadcastBatch {
+        messages: Vec<u32>,
+    },
+    BroadcastBatchOk,
     Read,
     ReadOk {
         messages: HashSet<u32>,
