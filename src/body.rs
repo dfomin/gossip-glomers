@@ -72,4 +72,27 @@ pub enum Payload {
         code: u32,
         text: String,
     },
+    Send {
+        key: String,
+        msg: u64,
+    },
+    SendOk {
+        offset: u64,
+    },
+    Poll {
+        offsets: HashMap<String, u64>,
+    },
+    PollOk {
+        msgs: HashMap<String, Vec<Vec<u64>>>,
+    },
+    CommitOffsets {
+        offsets: HashMap<String, u64>,
+    },
+    CommitOffsetsOk,
+    ListCommittedOffsets {
+        keys: Vec<String>,
+    },
+    ListCommittedOffsetsOk {
+        offsets: HashMap<String, u64>,
+    },
 }

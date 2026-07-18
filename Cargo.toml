@@ -19,6 +19,10 @@ path = "src/bin/broadcast.rs"
 name = "gcounter"
 path = "src/bin/gcounter.rs"
 
+[[bin]]
+name = "kafka"
+path = "src/bin/kafka.rs"
+
 [dependencies]
 anyhow = "1.0.102"
 futures = "0.3.32"

@@ -2,6 +2,7 @@ pub mod workload_broadcast;
 pub mod workload_echo;
 pub mod workload_gcounter;
 pub mod workload_generate;
+pub mod workload_kafka;
 
 use anyhow::Result;
 use tokio::sync::mpsc::Sender;
