@@ -6,7 +6,25 @@ use serde::{Deserialize, Serialize};
 #[serde(untagged)]
 pub enum ReadRPC {
     Broadcast { messages: HashSet<u32> },
-    Gcounter { value: u32 },
+    Gcounter { value: u64 },
+    Kafka { value: Vec<u64> },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CasRPC {
+    Gcounter {
+        key: String,
+        from: u64,
+        to: u64,
+        create_if_not_exists: bool,
+    },
+    Kafka {
+        key: String,
+        from: Vec<u64>,
+        to: Vec<u64>,
+        create_if_not_exists: bool,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,14 +76,12 @@ pub enum Payload {
     },
     TopologyOk,
     Add {
-        delta: u32,
+        delta: u64,
     },
     AddOk,
     Cas {
-        key: String,
-        from: u32,
-        to: u32,
-        create_if_not_exists: bool,
+        #[serde(flatten)]
+        data: CasRPC,
     },
     CasOk,
     Error {

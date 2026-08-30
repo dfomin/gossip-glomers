@@ -89,8 +89,8 @@ impl Workload for WorkloadBroadcast {
                 self.gossip_targets = self
                     .topology
                     .keys()
+                    .filter(|&node| node != &self.node)
                     .cloned()
-                    .filter(|node| node != &self.node)
                     .collect::<Vec<_>>()
                     .sample(&mut rng, targets_count)
                     .cloned()

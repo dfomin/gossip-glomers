@@ -5,14 +5,14 @@ use tokio::sync::{
 };
 
 use crate::{
-    body::Payload,
+    body::{CasRPC, Payload, ReadRPC},
     transport::{RPCData, SendData, TransportPayload},
     workload::Workload,
 };
 
 struct CasActorPayload {
-    tx: Sender<crate::transport::TransportPayload>,
-    delta: u32,
+    tx: Sender<TransportPayload>,
+    delta: u64,
     dest: String,
     msg_id: Option<u64>,
 }
@@ -48,17 +48,19 @@ pub struct WorkloadGcounter {
 }
 
 impl WorkloadGcounter {
-    async fn add(tx: Sender<crate::transport::TransportPayload>, delta: u32) -> Result<()> {
+    async fn add(tx: Sender<TransportPayload>, delta: u64) -> Result<()> {
         loop {
             let value = WorkloadGcounter::read(tx.clone()).await?;
             let (reply_tx, reply_rx) = oneshot::channel();
             _ = tx
                 .send(TransportPayload::RPC(RPCData {
                     payload: Payload::Cas {
-                        key: "g-counter".to_string(),
-                        from: value,
-                        to: value + delta,
-                        create_if_not_exists: true,
+                        data: CasRPC::Gcounter {
+                            key: "g-counter".to_string(),
+                            from: value,
+                            to: value + delta,
+                            create_if_not_exists: true,
+                        },
                     },
                     dest: "seq-kv".to_string(),
                     reply_tx,
@@ -78,7 +80,7 @@ impl WorkloadGcounter {
         }
     }
 
-    async fn read(tx: Sender<crate::transport::TransportPayload>) -> Result<u32> {
+    async fn read(tx: Sender<TransportPayload>) -> Result<u64> {
         let (reply_tx, reply_rx) = oneshot::channel();
         _ = tx
             .send(TransportPayload::RPC(RPCData {
@@ -92,7 +94,7 @@ impl WorkloadGcounter {
         let reply_message = reply_rx.await?;
         match reply_message.body.payload {
             Payload::ReadOk {
-                result: crate::body::ReadRPC::Gcounter { value },
+                result: ReadRPC::Gcounter { value },
             } => Ok(value),
             Payload::Error { code, .. } => match code {
                 20 => Ok(0),
